@@ -1,18 +1,35 @@
----
-- hosts: webservers 
-  become: True
-  tasks:
-    - name: Install packages
-      yum:
-        name: "httpd"
-        state: "present"
-    - name: Start Apache server
+- hosts: webservers
+  become: true
+- tasks:
+    - name: Install latest version of Apache
+      apt: name=apache2 update_cache=yes state=latest
+
+    - name: Create document root for your domain
+      file:
+        path: "/var/www/mydomain.local"
+        state: directory
+        owner: "ubuntu"
+        mode: '0755'
+
+    - name: Copy your index page
+      template:
+        src: "files/index.html.j2"
+        dest: "/var/www/mydomain.local/index.html"
+
+    - name: Set up virtuahHost
+      template:
+        src: "files/apache.conf.j2"
+        dest: "/etc/apache2/sites-available/my_domain.conf"
+      notify: restart-apache
+
+    - name: "UFW firewall allow HTTP on port 80"
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+  handlers:
+    - name: restart-apache
       service:
-        name: httpd
-        state: started
-        enabled: True
-    - name: Deploy static website
-      copy:
-        src: index.html
-        dest: /var/www/html/
-...
+        name: apache2
+        state: restarted
